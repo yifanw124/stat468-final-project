@@ -1,0 +1,48 @@
+name: Deploy API to EC2 (no ECR)
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create tarball
+        run: tar -czf project.tar.gz .
+
+      - name: Upload tarball to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "project.tar.gz"
+          target: "/home/ubuntu/"
+
+      - name: Build & run on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            sudo apt-get update -y
+            sudo apt-get install -y docker.io
+            cd /home/ubuntu
+            rm -rf stat468-deploy && mkdir stat468-deploy
+            tar -xzf project.tar.gz -C stat468-deploy
+            cd stat468-deploy
+            sudo docker build -t badminton-api:latest .
+            sudo docker rm -f badminton-api || true
+            sudo docker run -d --name badminton-api -p 8080:8080 \
+              -e MODEL_BUCKET=badminton12345 \
+              -e MODEL_KEY=stack_model.pkl \
+              -e DATA_KEY=tournaments_2018_2025_June.csv \
+              -e AWS_REGION=us-east-1 \
+              badminton-api:latest
+            sleep 3
+            curl -s http://127.0.0.1:8080/health || true
