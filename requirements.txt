@@ -1,0 +1,12 @@
+boto3
+fastapi
+uvicorn[standard]
+vetiver
+pandas
+numpy
+scikit-learn
+xgboost
+networkx
+shiny
+duckdb
+requests

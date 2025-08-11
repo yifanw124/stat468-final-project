@@ -1,0 +1,7 @@
+.venv
+__pycache__
+*.pem
+*.pkl
+*.parquet
+*.csv
+.env
