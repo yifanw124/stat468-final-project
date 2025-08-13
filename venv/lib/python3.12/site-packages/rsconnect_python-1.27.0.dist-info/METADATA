@@ -1,0 +1,106 @@
+Metadata-Version: 2.1
+Name: rsconnect_python
+Version: 1.27.0
+Summary: The Posit Connect command-line interface.
+Author-email: "Posit, PBC" <rsconnect@posit.co>
+License: # MIT License
+        
+        Copyright (c) 2025 Posit Software, PBC
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Repository, http://github.com/posit-dev/rsconnect-python
+Project-URL: Documentation, https://docs.posit.co/rsconnect-python
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: typing-extensions>=4.8.0
+Requires-Dist: pip>=10.0.0
+Requires-Dist: semver<4.0.0,>=2.0.0
+Requires-Dist: pyjwt>=2.4.0
+Requires-Dist: click>=8.0.0
+Requires-Dist: toml>=0.10; python_version < "3.11"
+Provides-Extra: docs
+Requires-Dist: mkdocs-material; extra == "docs"
+Requires-Dist: mkdocs-click; extra == "docs"
+Requires-Dist: pymdown-extensions; extra == "docs"
+Requires-Dist: mkdocs-macros-plugin; extra == "docs"
+Provides-Extra: snowflake
+Requires-Dist: snowflake-cli; extra == "snowflake"
+Provides-Extra: test
+Requires-Dist: black==24.3.0; extra == "test"
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: flake8-pyproject; extra == "test"
+Requires-Dist: flake8; extra == "test"
+Requires-Dist: httpretty; extra == "test"
+Requires-Dist: ipykernel; extra == "test"
+Requires-Dist: nbconvert; extra == "test"
+Requires-Dist: pyright; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: setuptools>=61; extra == "test"
+Requires-Dist: setuptools-scm[toml]>=3.4; extra == "test"
+Requires-Dist: twine; extra == "test"
+Requires-Dist: types-Flask; extra == "test"
+
+# [rsconnect-python](https://docs.posit.co/rsconnect-python)
+
+The [Posit Connect](https://docs.posit.co/connect/) command-line interface.
+
+## Installation
+
+### uv
+
+```bash
+uv tool install rsconnect-python
+```
+
+### pipx
+
+```bash
+pipx install rsconnect-python
+```
+
+### into your project
+
+```bash
+python -m pip install rsconnect-python
+```
+
+## Usage
+
+[Get an API key from your Posit Connect server](https://docs.posit.co/connect/user/api-keys/) with at least publisher privileges:
+
+Store your credentials:
+
+```bash
+rsconnect add --server https://connect.example.com --api-key <YOUR-CONNECT-API-KEY> --name production
+```
+
+Deploy your application:
+
+```bash
+rsconnect deploy shiny app.py --title "my shiny app"
+```
+
+[Read more about publisher and admin capabilities on the docs site.](https://docs.posit.co/rsconnect-python)
+
+## Contributing
+
+[Contributing docs](./CONTRIBUTING.md)

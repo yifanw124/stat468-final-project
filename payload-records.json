@@ -1,0 +1,24 @@
+{
+  "data": [
+    {
+      "elo_diff": 75,
+      "win_pct_5": 0.6,
+      "win_pct_10": 0.58,
+      "win_pct_20": 0.55,
+      "h2h_decay": 0.52,
+      "h2h_adj": 0.50,
+      "pr_player": 0.004,
+      "pr_opponent": 0.003
+    },
+    {
+      "elo_diff": -30,
+      "win_pct_5": 0.4,
+      "win_pct_10": 0.45,
+      "win_pct_20": 0.48,
+      "h2h_decay": 0.47,
+      "h2h_adj": 0.46,
+      "pr_player": 0.002,
+      "pr_opponent": 0.005
+    }
+  ]
+}

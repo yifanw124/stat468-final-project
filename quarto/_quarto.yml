@@ -1,0 +1,26 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "STAT 468 Final Project – Head-to-Head Badminton Win Prediction"
+  navbar:
+    left:
+      - text: "Abstract"
+        href: index.qmd
+      - text: "Question of Interest"
+        href: 1_question.qmd
+      - text: "Import"
+        href: 2_import.qmd
+      - text: "Tidy"
+        href: 3_tidy.qmd
+      - text: "Transform"
+        href: 4_transform.qmd
+      - text: "Visualize"
+        href: 5_visualize.qmd
+      - text: "Model"
+        href: 6_model.qmd
+      - text: "Communicate"
+        href: 7_communicate.qmd
+      - text: "References"
+        href: 8_references.qmd

@@ -1,0 +1,17 @@
+numpy>=1.26.0
+pandas>=2.2.0
+networkx>=3.3
+fastapi>=0.111.0
+shiny>=0.7.0
+plotnine>=0.13.0
+great-tables>=0.5.0
+htmltools>=0.5.0
+scikit-learn>=1.5.0
+boto3>=1.34.0
+pandas
+numpy
+networkx
+joblib
+shiny
+plotnine
+scikit-learn

@@ -1,0 +1,22 @@
+# Ignore Shiny app
+app.py
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore local virtual environments
+.venv/
+env/
+
+# Ignore git files
+.git/
+.gitignore
+
+# Ignore OS-specific junk
+.DS_Store
+Thumbs.db
+
+# Ignore notebooks (optional)
+*.ipynb

@@ -1,0 +1,12 @@
+{
+    "https://api.shinyapps.io": {
+        "server_url": "https://api.shinyapps.io",
+        "filename": "/Users/yifanw124/STAT468/stat468-final-project/shiny-app",
+        "app_url": "https://yifanw124.shinyapps.io/badminton-h2h/",
+        "app_id": "15197205",
+        "app_guid": null,
+        "title": "badminton-h2h",
+        "app_mode": "python-shiny",
+        "app_store_version": 1
+    }
+}

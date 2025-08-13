@@ -1,0 +1,33 @@
+project:
+  type: website
+
+website:
+  title: "Data Science Workflow Report"
+  navbar:
+    left:
+      - text: "Abstract"
+        href: index.qmd
+      - text: "1. Question"
+        href: 01_question.qmd
+      - text: "2. Import"
+        href: 02_import.qmd
+      - text: "3. Tidy"
+        href: 03_tidy.qmd
+      - text: "4. Transform"
+        href: 04_transform.qmd
+      - text: "5. Visualize"
+        href: 05_visualize.qmd
+      - text: "6. Model"
+        href: 06_model.qmd
+      - text: "7. Communicate"
+        href: 07_communicate.qmd
+      - text: "Appendix"
+        href: appendix.qmd
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    code-fold: true
+    number-sections: true
+    df-print: paged
