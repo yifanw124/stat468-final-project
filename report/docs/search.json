@@ -1,0 +1,192 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "STAT 468 Final Project – Head-to-Head Badminton Win Prediction",
+    "section": "",
+    "text": "1 Abstract\nThis project develops a predictive model for head-to-head badminton match outcomes using tournament data spanning 2018–2025. The dataset, provided by Andrew Zhuang and scraped from the Badminton World Federation (BWF) website, contains detailed match-level information across multiple international and domestic competitions. The solution allows users to select specific tournaments and assess player matchups at both university and national levels.\nPractical significance\nBy quantifying win probabilities between players in a given tournament context, this tool supports decision-making for coaches, analysts, and players. Coaches can use the predictions to tailor training plans to likely opponents. Players can use the insights to prepare strategically for key matches. At a broader level, the model offers analysts a way to monitor competitive balance and emerging talent in badminton.\nTechnical contribution\nThe solution implements a full data science workflow: data cleaning, feature engineering, exploratory visualization, model training, evaluation, and communication. We explored and compared multiple modelling approaches (Logistic Regression, XGBoost, and a Stacking Classifier) to capture both interpretable relationships and complex, non-linear patterns. Temporal train-test splits, rolling window statistics, Elo rating differentials, and head-to-head decay metrics were employed to ensure realistic and robust predictions.\nData constraints\nThe dataset covers seven years of tournaments but is limited to matches where full player names, results, and event details were available. The predictions were built and applied to Singles data only, given the complex nature of Doubles games. As scraped data, it required extensive cleaning to standardize formats and remove duplicates. The historical nature of the data also means that certain player metrics (e.g., injury status, coaching changes) are not recorded, so the model’s predictions are based purely on match history and derived statistics.\nThis combination of practical utility, methodological rigor, and careful handling of real-world data constraints ensures that the final deliverable is both actionable and reliable for the intended audiences.",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Head-to-Head Badminton Win Prediction</span>"
+    ]
+  },
+  {
+    "objectID": "question.html",
+    "href": "question.html",
+    "title": "2  Question of Interest",
+    "section": "",
+    "text": "Badminton is a head‑to‑head sport where small, context‑dependent advantages compound: recent form, opponent familiarity, and tournament strength all impact the odds. Our core question is: Given players and their historical performance across tournaments facing different opponenets, what is the probability that they will win over specific opponents? Framing the task in probabilistic terms rather than binary win/loss allows coaches and selectors to reason about risk, uncertainty, and expected outcomes.\nThis framing aligns with practical workflows at university and national levels. Prior to match day, coaches often have to base their tournament selection decisions based on the limited information they have, given they are unable to attend all/most training sessions of each player. Their line up choices also often lack an objective basis. A calibrated probability lets staff compare apples to apples across scenarios, and it avoids overconfidence when the historical signal is thin.\nThis is the key motivation - fairness and transparency in selection. Anecdotal judgments can be biased by recency or reputation, but a data‑backed probability grounded in reproducible features (Elo, rolling form, head‑to‑head memory) provides a consistent baseline. It does not replace expert judgment, but it complements it by surfacing where the data strongly agrees or disagrees with intuition.\nThe question maps to supervised binary classification with temporally ordered examples. The ordering matters here since match i+1 cannot use information from match i’s future. We therefore construct features online (at time t) and evaluate with a forward‑in‑time split, making our offline scores a better proxy for live use.\nFinally, the problem benefits from models that balance interpretability and flexibility. Linear effects should be visible (ex, increasing Elo difference increases win odds), while interactions and non‑linear thresholds (ex, momentum effects captured via rolling windows) should also be learnable. This informs the modeling choices described later.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>Question of Interest</span>"
+    ]
+  },
+  {
+    "objectID": "import.html",
+    "href": "import.html",
+    "title": "3  Import",
+    "section": "",
+    "text": "3.1 Overview\nWe ensure that the dataset, sourced from the Badminton World Federation (BWF) website and curated by Andrew Zhuang, is loaded into memory in a clean, consistent format. This prepares it for downstream analysis including feature engineering, modelling, and visualization.\nThe raw dataset is a CSV file containing match-level records from 2018 to 2025. It includes fields such as event type, players, match outcomes, and tournament metadata. Since scraped data can be messy, we apply a series of checks and transformations immediately on import to ensure quality.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Import</span>"
+    ]
+  },
+  {
+    "objectID": "import.html#load-the-data",
+    "href": "import.html#load-the-data",
+    "title": "3  Import",
+    "section": "3.2 Load the Data",
+    "text": "3.2 Load the Data\nWe begin by defining paths and reading the CSV into a pandas DataFrame. Restricting to singles events (MS for Men’s Singles, WS for Women’s Singles) avoids mixing in doubles matches, which require different modelling due to partner synergy.\nRequired libraries are loaded. The model outputs to the S3 bucket badminton12345, where the training dataset is also stored in csv format.\n\n\nCode\n# train_model.py\nimport os, json, inspect\nfrom pathlib import Path\nfrom collections import defaultdict\n\nimport numpy as np\nimport pandas as pd\nimport networkx as nx\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.ensemble import StackingClassifier\nfrom sklearn.metrics import roc_auc_score, accuracy_score, brier_score_loss\nfrom xgboost import XGBClassifier\nimport joblib\n\n# ---------- config ----------\nBASE_DIR  = Path(\"/Users/yifanw124/STAT468/stat468-final-project\")\nDATA_PATH = BASE_DIR / \"tournaments_2018_2025_June.csv\"\nOUT_DIR   = BASE_DIR\nOUT_MODEL = OUT_DIR / \"stack_model.joblib\"\nOUT_META  = OUT_DIR / \"feature_spec.json\"\n\nPIN_TO_S3          = os.getenv(\"PIN_TO_S3\", \"false\").lower() == \"true\"\nUSE_VETIVER_BUNDLE = os.getenv(\"USE_VETIVER\", \"false\").lower() == \"true\"\nRANDOM_STATE       = 42\n\nMODEL_BUCKET = os.getenv(\"MODEL_BUCKET\", \"\")          # used only if PIN_TO_S3\nMODEL_PIN    = os.getenv(\"MODEL_PIN\", \"stack_model\")  # also used as vetiver model_name\n\n\n\n\nCode\n# ---------- load ----------\ndf0 = pd.read_csv(DATA_PATH)\ndf0 = df0[df0[\"event\"].str.contains(\"MS|WS\", regex=True)].copy()\ndf0[\"date\"] = pd.to_datetime(df0[\"date\"])\ndf0 = df0.sort_values(\"date\").reset_index(drop=True)",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Import</span>"
+    ]
+  },
+  {
+    "objectID": "tidy_and_transform.html",
+    "href": "tidy_and_transform.html",
+    "title": "4  Tidy & Transform",
+    "section": "",
+    "text": "4.1 Tidy\nCode\n# ---------- load ----------\ndf0 = pd.read_csv(DATA_PATH)\ndf0 = df0[df0[\"event\"].str.contains(\"MS|WS\", regex=True)].copy()\ndf0[\"date\"] = pd.to_datetime(df0[\"date\"])\ndf0 = df0.sort_values(\"date\").reset_index(drop=True)\nIn preparing the dataset for analysis, we began by importing the raw tournament records from the specified source file into a working DataFrame. From this full set of events, we retained only men’s singles (MS) and women’s singles (WS) matches, since our focus is on head-to-head singles competition. The match date field was converted to a proper datetime format to enable accurate time-based feature construction and ordering. We then sorted the data chronologically so that all subsequent feature calculations respect the temporal sequence of matches, and reset the index to maintain a clean, continuous row numbering for downstream processing.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Tidy & Transform</span>"
+    ]
+  },
+  {
+    "objectID": "tidy_and_transform.html#feature-engineering",
+    "href": "tidy_and_transform.html#feature-engineering",
+    "title": "4  Tidy & Transform",
+    "section": "4.2 Feature engineering",
+    "text": "4.2 Feature engineering\nThe predictive model relies on a set of engineered features designed to capture player skill, recent performance trends, head-to-head dynamics, and network-level influence. Each feature was constructed to reflect only information available at the time of prediction, thereby avoiding target leakage. The following describes each feature, its derivation, and its intended role in improving model performance.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Tidy & Transform</span>"
+    ]
+  },
+  {
+    "objectID": "tidy_and_transform.html#elo-ratings",
+    "href": "tidy_and_transform.html#elo-ratings",
+    "title": "4  Tidy & Transform",
+    "section": "4.3 Elo Ratings",
+    "text": "4.3 Elo Ratings\n\n\nCode\n# ---------- Elo (online, no leakage) ----------\nDEFAULT_ELO = 1200\nK = 32\n\nfrom collections import defaultdict\nelo = defaultdict(lambda: DEFAULT_ELO)\n\ndef expected_score(rA, rB):\n    return 1 / (1 + 10 ** ((rB - rA) / 400))\n\ndef update_elo(rA, rB, outcome_A):\n    eA = expected_score(rA, rB)\n    rA_new = rA + K * (outcome_A - eA)\n    rB_new = rB + K * ((1 - outcome_A) - (1 - eA))\n    return rA_new, rB_new\n\nrows = []\nfor _, r in df0.iterrows():\n    p1, p2 = str(r[\"player1\"]), str(r[\"player2\"])\n    out1 = 1 if int(r[\"winner\"]) == 1 else 0\n    r1, r2 = elo[p1], elo[p2]\n    sd = float(r[\"team1_total_points\"] - r[\"team2_total_points\"])\n\n    # features BEFORE updating Elo to avoid leakage\n    rows.append({\n        \"player_id\": p1, \"opponent_id\": p2,\n        \"elo_player\": r1, \"elo_opponent\": r2,\n        \"elo_diff\": r1 - r2,\n        \"score_diff\": sd,\n        \"win\": out1,\n        \"date\": r[\"date\"],\n        \"tournament\": r.get(\"tournament_name\", None),\n        \"event\": r[\"event\"],\n    })\n    rows.append({\n        \"player_id\": p2, \"opponent_id\": p1,\n        \"elo_player\": r2, \"elo_opponent\": r1,\n        \"elo_diff\": r2 - r1,\n        \"score_diff\": -sd,\n        \"win\": 1 - out1,\n        \"date\": r[\"date\"],\n        \"tournament\": r.get(\"tournament_name\", None),\n        \"event\": r[\"event\"],\n    })\n\n    elo[p1], elo[p2] = update_elo(r1, r2, out1)\n\ndf = pd.DataFrame(rows).sort_values(\"date\").reset_index(drop=True)\n\n\nFor each match, the pre-match Elo ratings of both the focal player and their opponent were recorded. Elo ratings were initialized at 1200 for all players and updated online using a constant K=32 after each match. By recording these ratings before any update, the features represent each player’s latent skill level immediately prior to the match without incorporating outcome information. This choice captures the evolving competitive balance between players and is well suited to sports prediction contexts where performance changes over time.\nThe Elo rating difference, computed as elo_player - elo_opponent, distills the relative strength of the two competitors into a single scalar measure. Positive values indicate that the focal player entered the match as the Elo favourite, while negative values suggest the opponent held an advantage. Using a difference metric rather than two separate ratings reduces collinearity and can improve interpretability for models sensitive to redundant inputs.\nThe score differential reflects the raw margin of points in a match, computed as the difference between the two sides’ total points. It is recorded before Elo updates to prevent leakage and is mirrored appropriately when generating the opponent’s perspective row. This metric adds context on the dominance or closeness of prior performances, potentially revealing patterns not visible from binary win/loss records alone.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Tidy & Transform</span>"
+    ]
+  },
+  {
+    "objectID": "tidy_and_transform.html#rolling-win",
+    "href": "tidy_and_transform.html#rolling-win",
+    "title": "4  Tidy & Transform",
+    "section": "4.4 Rolling Win %",
+    "text": "4.4 Rolling Win %\n\n\nCode\n# ---------- Rolling win% (shifted) ----------\nfor w in (5, 10, 20):\n    df[f\"win_pct_{w}\"] = (\n        df.groupby(\"player_id\")[\"win\"]\n          .transform(lambda s: s.shift(1).rolling(w, min_periods=1).mean())\n    )\n\n\nThree rolling win percentage features were calculated over the most recent 5, 10, and 20 matches, each shifted by one match to exclude the current outcome. The use of multiple window sizes allows the model to detect both short-term momentum and longer-term consistency. Smaller windows respond quickly to form changes, while larger windows smooth short-term volatility and approximate a player’s baseline performance level.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Tidy & Transform</span>"
+    ]
+  },
+  {
+    "objectID": "tidy_and_transform.html#head-to-head-exponential-decay",
+    "href": "tidy_and_transform.html#head-to-head-exponential-decay",
+    "title": "4  Tidy & Transform",
+    "section": "4.5 Head to Head Exponential Decay",
+    "text": "4.5 Head to Head Exponential Decay\n\n\nCode\n# ---------- H2H exponential decay (shifted) ----------\nalpha = 0.1\ndf[\"h2h_decay\"] = (\n    df.groupby([\"player_id\", \"opponent_id\"])[\"win\"]\n      .transform(lambda s: s.shift(1).ewm(alpha=alpha, adjust=False).mean())\n)\n\n# Opponent strength adjust (safe divide)\ndf[\"h2h_adj\"] = (\n    df[\"h2h_decay\"] * (df[\"elo_opponent\"] / df[\"elo_player\"].replace(0, np.nan))\n).fillna(0.0)\n\n\nAn exponentially weighted moving average of prior head-to-head results was computed for each player–opponent pair, with a decay parameter α=0.1. This measure emphasizes recent encounters while retaining older results at diminishing weight. It captures stylistic or matchup-specific dynamics that are not fully explained by overall skill ratings, reflecting the idea that certain players may consistently perform better or worse against particular opponents.\nThe head-to-head decay feature was further adjusted by the relative strength of the opponent, computed as the ratio of the opponent’s Elo to the player’s Elo. This scaling accounts for the fact that beating a strong opponent is more informative than beating a weaker one. The adjustment helps to prevent misleadingly high head-to-head scores when the wins were accumulated against underperforming or low-ranked opponents.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Tidy & Transform</span>"
+    ]
+  },
+  {
+    "objectID": "tidy_and_transform.html#time-based-split",
+    "href": "tidy_and_transform.html#time-based-split",
+    "title": "4  Tidy & Transform",
+    "section": "4.6 Time-based Split",
+    "text": "4.6 Time-based Split\n\n\nCode\n# ---------- Time-based split ----------\ndate_cut = df[\"date\"].quantile(0.80)\ndf_tr = df[df[\"date\"] &lt;= date_cut].copy()\ndf_te = df[df[\"date\"] &gt;  date_cut].copy()",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Tidy & Transform</span>"
+    ]
+  },
+  {
+    "objectID": "tidy_and_transform.html#pagerank",
+    "href": "tidy_and_transform.html#pagerank",
+    "title": "4  Tidy & Transform",
+    "section": "4.7 PageRank",
+    "text": "4.7 PageRank\n\n\nCode\n# ---------- PageRank (train period only) ----------\nG = nx.DiGraph()\nfor _, rr in df_tr.iterrows():\n    if rr[\"win\"] == 1:\n        G.add_edge(rr[\"opponent_id\"], rr[\"player_id\"])\npagerank = nx.pagerank(G, alpha=0.85) if G.number_of_nodes() &gt; 0 else {}\n\ndf[\"pr_player\"]   = df[\"player_id\"].map(lambda x: pagerank.get(x, 0.0)).astype(float)\ndf[\"pr_opponent\"] = df[\"opponent_id\"].map(lambda x: pagerank.get(x, 0.0)).astype(float)\n\n# Re-split after PR\ndf_tr = df[df[\"date\"] &lt;= date_cut].copy()\ndf_te = df[df[\"date\"] &gt;  date_cut].copy()\n\n\nPageRank scores were calculated on a directed graph constructed from matches in the training period only, with edges directed from losers to winners. This network-based metric rewards victories over players who themselves have many quality wins, thereby encoding strength-of-schedule information. By computing PageRank solely on training data, the process avoids incorporating future results into the feature set.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Tidy & Transform</span>"
+    ]
+  },
+  {
+    "objectID": "model.html",
+    "href": "model.html",
+    "title": "5  Model",
+    "section": "",
+    "text": "5.1 Temporal Train-Test Split\nThe dataset was split into training and testing partitions using the 80th percentile of the date distribution as a cutoff. All features were computed with respect to this split, and PageRank was recomputed using only training matches. This design enforces a realistic, forward-in-time prediction setting that mirrors actual deployment conditions, ensuring that the evaluation reflects true out-of-sample performance.\nCode\n# ---------- Features / target ----------\nFEATURES = [\n    \"elo_diff\",\n    \"win_pct_5\", \"win_pct_10\", \"win_pct_20\",\n    \"h2h_decay\", \"h2h_adj\",\n    \"pr_player\", \"pr_opponent\",\n]\nfor c in FEATURES:\n    df_tr[c] = pd.to_numeric(df_tr[c], errors=\"coerce\").fillna(0.0)\n    df_te[c] = pd.to_numeric(df_te[c], errors=\"coerce\").fillna(0.0)\n\nX_train, y_train = df_tr[FEATURES], df_tr[\"win\"].astype(int)\nX_test,  y_test  = df_te[FEATURES], df_te[\"win\"].astype(int)",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Model</span>"
+    ]
+  },
+  {
+    "objectID": "model.html#xgboost",
+    "href": "model.html#xgboost",
+    "title": "5  Model",
+    "section": "5.2 XGBoost",
+    "text": "5.2 XGBoost\nIn the modelling stage, the approach begins with specifying a tuned gradient boosting model. An XGBClassifier is configured with parameters selected to balance predictive power with generalization, including a moderate tree depth, a learning rate that encourages gradual updates, and column and row subsampling to introduce diversity in the fitted trees. The chosen evaluation metric, log loss, reflects a focus on producing well-calibrated probabilities rather than simply maximizing classification accuracy. A fixed random seed is set to ensure results are reproducible. Categorical features are explicitly disabled within the model to align with the preprocessing pipeline used earlier in the workflow.\n\n\nCode\n# ---------- Model ----------\nbest_xgb_params = {\n    \"n_estimators\": 214,\n    \"max_depth\": 8,\n    \"learning_rate\": 0.05801866004578234,\n    \"subsample\": 0.80,\n    \"colsample_bytree\": 0.75,\n    \"eval_metric\": \"logloss\",\n    \"random_state\": RANDOM_STATE,\n    \"enable_categorical\": False,\n}\nxgb = XGBClassifier(**best_xgb_params)",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Model</span>"
+    ]
+  },
+  {
+    "objectID": "model.html#stacking-xgboost-and-logistic-regression",
+    "href": "model.html#stacking-xgboost-and-logistic-regression",
+    "title": "5  Model",
+    "section": "5.3 Stacking XGBoost and Logistic Regression",
+    "text": "5.3 Stacking XGBoost and Logistic Regression\nRather than relying on a single model, the strategy combines two models through a stacking ensemble. Here, a logistic regression and the tuned XGBoost model serve as base learners. Each has different inductive biases: the linear model captures straightforward additive relationships, while the boosted trees capture non-linear interactions and thresholds. The outputs of these base models, along with the original features (passthrough=True), are fed into a final logistic regression meta-model, which learns how to weight and combine the different perspectives.\n\n\nCode\nestimators = [\n    (\"lr\", LogisticRegression(max_iter=1_000, random_state=RANDOM_STATE)),\n    (\"xgb\", xgb),\n]\nstack = StackingClassifier(\n    estimators=estimators,\n    final_estimator=LogisticRegression(max_iter=1_000, random_state=RANDOM_STATE),\n    cv=5,\n    passthrough=True,\n    n_jobs=-1,\n)\n\nstack.fit(X_train, y_train)\ny_prob = stack.predict_proba(X_test)[:, 1]\ny_pred = (y_prob &gt;= 0.5).astype(int)",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Model</span>"
+    ]
+  },
+  {
+    "objectID": "model.html#results",
+    "href": "model.html#results",
+    "title": "5  Model",
+    "section": "5.4 Results",
+    "text": "5.4 Results\nThe fitted stacking classifier is then applied to the held-out test set to produce predicted probabilities. Performance is evaluated using three complementary metrics under a temporal train–test split, which reflects real-world deployment where future matches are predicted from past data. The ROC AUC score measures the model’s ability to rank winners above losers, accuracy captures the proportion of correct classifications, and the Brier score assesses the calibration of predicted probabilities, which penalizes overconfident errors.\n\n\nCode\nprint(f\"[Temporal split] ROC AUC : {roc_auc_score(y_test, y_prob):.6f}\")\nprint(f\"[Temporal split] Accuracy: {accuracy_score(y_test, y_pred):.6f}\")\nprint(f\"[Temporal split] Brier   : {brier_score_loss(y_test, y_prob):.6f}\")\n\n\n[Temporal split] ROC AUC : 0.757130\n[Temporal split] Accuracy: 0.689982\n[Temporal split] Brier   : 0.208891",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Model</span>"
+    ]
+  },
+  {
+    "objectID": "visualize_and_communicate.html",
+    "href": "visualize_and_communicate.html",
+    "title": "6  Visualize & Communicate",
+    "section": "",
+    "text": "6.1 Visualize\nThe predictive Shiny application serves as the primary interface for exploring the model’s output. Users can upload a tournament CSV file that follows the same schema as the training data, or rely on the default dataset shipped with the application. Once a dataset is loaded, the application constructs all required match-level features in the same manner as the training pipeline, ensuring that predictions are fully aligned with model expectations. Predictions are generated via a deployed remote API by default, with a local model fallback if remote inference is unavailable.\nThe visual layer of the application is designed to summarize performance patterns across players. Three bar charts generated with ggplot are displayed side-by-side. The first ranks the top 15 players by average predicted win probability, highlighting those with consistently strong expected performance. The second shows the 15 lowest-ranked players on the same metric, offering insight into those with historically lower predicted success rates. The third ranks players by total number of matches played, allowing users to distinguish between high-frequency competitors and those appearing less often in the dataset. All three charts employ a horizontal bar layout with a clean theme_bw styling to maximize legibility.\nA full predictions table accompanies these charts, showing each match’s date, the player and opponent names, the predicted win probability for the focal player, and the corresponding internal IDs. It allows the user to take it for further analysis, if desired.",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Visualize & Communicate</span>"
+    ]
+  },
+  {
+    "objectID": "visualize_and_communicate.html#communicate",
+    "href": "visualize_and_communicate.html#communicate",
+    "title": "6  Visualize & Communicate",
+    "section": "6.2 Communicate",
+    "text": "6.2 Communicate\nThe application’s workflow is straightforward:\n\nData ingestion – The user uploads a compatible CSV file or relies on the pre-loaded tournament data.\nFeature engineering – Match-level statistics, Elo ratings, recent win percentages, head-to-head decay, and PageRank measures are reconstructed in-app using the same logic as during model training.\nPrediction – The model generates win probabilities, either via a live call to a remote API or, if that fails, by running a locally stored model.\nPresentation – Predictions are aggregated by player and rendered as interactive charts and a complete table of results.\n\nThe communication goal of this interface is to make model outputs interpretable and actionable for a non-technical audience. The aggregate plots immediately surface players with unusually high or low expected performance, while the match counts contextualise these probabilities by showing the volume of evidence behind them. The detailed predictions table supports more granular questions, such as identifying specific opponents that pose the greatest challenge or detecting shifts in predicted performance over time.\nIn an example use case of the UW badminton team, the coach could upload a csv file containing the whole team’s past tournament records, and the shiny output would be generated to show the relative strength (in the form of predictive win rates) of individual players against others for selection decisions.",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Visualize & Communicate</span>"
+    ]
+  },
+  {
+    "objectID": "visualize_and_communicate.html#saving-model-to-s3-and-locally",
+    "href": "visualize_and_communicate.html#saving-model-to-s3-and-locally",
+    "title": "6  Visualize & Communicate",
+    "section": "6.3 Saving Model to S3 (and Locally)",
+    "text": "6.3 Saving Model to S3 (and Locally)\nThe below script ensures the model output is saved to the S3 badminton12345 bucket under stack_model as vetiver_model.joblib. It also saves a local copy of the model for backup.\n\n\nCode\n# ---------- Save ----------\nplayers = pd.unique(pd.concat([df[\"player_id\"], df[\"opponent_id\"]], ignore_index=True))\nid_to_label = {p: p for p in players}\n\nbundle = {\n    \"model\": stack,\n    \"features\": FEATURES,\n    \"id_to_label\": id_to_label,\n    \"pagerank\": pagerank,\n    \"trained_on\": str(DATA_PATH),\n    \"date_cutoff\": date_cut.isoformat(),\n}\n\nif USE_VETIVER_BUNDLE:\n    from vetiver import VetiverModel\n    from sklearn.pipeline import Pipeline\n    from sklearn.preprocessing import StandardScaler\n    import boto3, io, botocore\n\n    model_pipeline = Pipeline([\n        (\"scaler\", StandardScaler()),\n        (\"classifier\", stack),\n    ])\n    model_pipeline.fit(X_train, y_train)\n\n    v = VetiverModel(model=model_pipeline,\n                     model_name=MODEL_PIN,\n                     prototype=X_train.iloc[:2].copy())\n\n    local_art = OUT_DIR / \"vetiver_model.joblib\"\n    joblib.dump(v, local_art)\n    print(f\"Saved VetiverModel locally to {local_art}\")\n\n    # ---------- DIRECT BOTO3 UPLOAD ----------\n    bucket = MODEL_BUCKET or os.getenv(\"AWS_S3_BUCKET\") or \"\"\n    assert bucket, \"MODEL_BUCKET env var must be set when USE_VETIVER_BUNDLE=true\"\n\n    region = os.getenv(\"AWS_DEFAULT_REGION\", \"us-east-1\")\n    kw = {\"region_name\": region}\n    if os.getenv(\"AWS_ACCESS_KEY_ID\") and os.getenv(\"AWS_SECRET_ACCESS_KEY\"):\n        kw[\"aws_access_key_id\"] = os.getenv(\"AWS_ACCESS_KEY_ID\")\n        kw[\"aws_secret_access_key\"] = os.getenv(\"AWS_SECRET_ACCESS_KEY\")\n\n    s3 = boto3.client(\"s3\", **kw)\n\n    key = f\"{MODEL_PIN}/vetiver_model.joblib\"\n    print(f\"Uploading Vetiver model to s3://{bucket}/{key} ...\")\n\n    buf = io.BytesIO()\n    joblib.dump(v, buf)\n    buf.seek(0)\n    try:\n        s3.put_object(Bucket=bucket, Key=key, Body=buf.getvalue())\n        head = s3.head_object(Bucket=bucket, Key=key)\n        size = head.get(\"ContentLength\")\n        print(f\"Uploaded OK ({size} bytes).\")\n\n        try:\n            url = s3.generate_presigned_url(\n                ClientMethod=\"get_object\",\n                Params={\"Bucket\": bucket, \"Key\": key},\n                ExpiresIn=600,\n            )\n            print(f\"Presigned GET (10 min): {url}\")\n        except Exception as e:\n            print(f\"(Could not generate presigned URL: {e})\")\n\n        manifest = {\"type\": \"vetiver_joblib\", \"key\": key, \"bucket\": bucket}\n        s3.put_object(\n            Bucket=bucket,\n            Key=f\"{MODEL_PIN}/manifest.json\",\n            Body=json.dumps(manifest).encode(\"utf-8\"),\n            ContentType=\"application/json\",\n        )\n        print(f\"Wrote manifest to s3://{bucket}/{MODEL_PIN}/manifest.json\")\n\n    except botocore.exceptions.ClientError as e:\n        print(\"Boto3 S3 put_object failed:\", e)\n        raise\n\nelse:\n    joblib.dump(bundle, OUT_MODEL)\n    with open(OUT_META, \"w\") as f:\n        json.dump({\"features\": FEATURES, \"types\": {c: \"float\" for c in FEATURES}}, f, indent=2)\n    print(f\"Saved model bundle to {OUT_MODEL}\")\n\n\nSaved model bundle to /Users/yifanw124/STAT468/stat468-final-project/stack_model.joblib",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Visualize & Communicate</span>"
+    ]
+  },
+  {
+    "objectID": "references.html",
+    "href": "references.html",
+    "title": "7  References",
+    "section": "",
+    "text": "Dataset by Andrew Zhuang, scraped from BWF\nDevOps for Data Science\nMastering Shiny\nShiny documentation\npandas documentation\nscikit-learn documentation\nXGBoost documentation\nChatGPT - log 1, log 2, log 3",
+    "crumbs": [
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>References</span>"
+    ]
+  }
+]

@@ -1,0 +1,19 @@
+---
+title: "Head-to-Head Badminton Win Prediction"
+format: html
+---
+
+# Abstract
+
+This project develops a predictive model for head-to-head badminton match outcomes using tournament data spanning 2018–2025. The dataset, provided by Andrew Zhuang and scraped from the [Badminton World Federation (BWF) website](https://bwfbadminton.com/), contains detailed match-level information across multiple international and domestic competitions. The solution allows users to select specific tournaments and assess player matchups at both university and national levels.
+
+**Practical significance**  
+By quantifying win probabilities between players in a given tournament context, this tool supports decision-making for coaches, analysts, and players. Coaches can use the predictions to tailor training plans to likely opponents. Players can use the insights to prepare strategically for key matches. At a broader level, the model offers analysts a way to monitor competitive balance and emerging talent in badminton.
+
+**Technical contribution**  
+The solution implements a full data science workflow: data cleaning, feature engineering, exploratory visualization, model training, evaluation, and communication. We explored and compared multiple modelling approaches (Logistic Regression, XGBoost, and a Stacking Classifier) to capture both interpretable relationships and complex, non-linear patterns. Temporal train-test splits, rolling window statistics, Elo rating differentials, and head-to-head decay metrics were employed to ensure realistic and robust predictions.
+
+**Data constraints**  
+The dataset covers seven years of tournaments but is limited to matches where full player names, results, and event details were available. The predictions were built and applied to Singles data only, given the complex nature of Doubles games. As scraped data, it required extensive cleaning to standardize formats and remove duplicates. The historical nature of the data also means that certain player metrics (e.g., injury status, coaching changes) are not recorded, so the model’s predictions are based purely on match history and derived statistics.
+
+This combination of practical utility, methodological rigor, and careful handling of real-world data constraints ensures that the final deliverable is both actionable and reliable for the intended audiences.

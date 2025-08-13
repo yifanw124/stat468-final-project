@@ -1,0 +1,13 @@
+
+---
+title: "References"
+---
+
+1. Dataset by Andrew Zhuang, scraped from [BWF](https://bwfbadminton.com/)
+2. *DevOps for Data Science*
+3. *Mastering Shiny*
+4. Shiny documentation
+5. pandas documentation
+6. scikit-learn documentation
+7. XGBoost documentation
+8. ChatGPT - [log 1](https://chatgpt.com/share/689d0429-7248-8001-87ce-fdeb1a79e1d7), [log 2](https://chatgpt.com/share/689d046a-f6c0-8001-8ac1-05bd97dbfa5e), [log 3](https://chatgpt.com/share/689d0496-9194-8001-97eb-83d618b9b5d8)

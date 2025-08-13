@@ -1,0 +1,23 @@
+project:
+  type: book
+  output-dir: docs
+
+format:
+  html: 
+    toc: true
+    number-sections: true
+    self-contained: true
+    code-fold: true
+
+book:
+  title: "STAT 468 Final Project – Head-to-Head Badminton Win Prediction"
+  author: "Yvonne Wang"
+  date: "2025-08-11"
+  chapters:
+    - index.qmd
+    - question.qmd
+    - import.qmd
+    - tidy_and_transform.qmd
+    - model.qmd
+    - visualize_and_communicate.qmd
+    - references.qmd

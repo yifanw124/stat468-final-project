@@ -1,0 +1,13 @@
+---
+title: "Question of Interest"
+---
+
+Badminton is a head‑to‑head sport where small, context‑dependent advantages compound: recent form, opponent familiarity, and tournament strength all impact the odds. Our core question is: *Given players and their historical performance across tournaments facing different opponenets, what is the probability that they will win over specific opponents?* Framing the task in probabilistic terms rather than binary win/loss allows coaches and selectors to reason about risk, uncertainty, and expected outcomes.
+
+This framing aligns with practical workflows at university and national levels. Prior to match day, coaches often have to base their tournament selection decisions based on the limited information they have, given they are unable to attend all/most training sessions of each player. Their line up choices also often lack an objective basis. A calibrated probability lets staff compare apples to apples across scenarios, and it avoids overconfidence when the historical signal is thin.
+
+This is the key motivation - fairness and transparency in selection. Anecdotal judgments can be biased by recency or reputation, but a data‑backed probability grounded in reproducible features (Elo, rolling form, head‑to‑head memory) provides a consistent baseline. It does not replace expert judgment, but it complements it by surfacing where the data strongly agrees or disagrees with intuition.
+
+The question maps to supervised binary classification with temporally ordered examples. The ordering matters here since match i+1 cannot use information from match i’s future. We therefore construct features online (at time t) and evaluate with a forward‑in‑time split, making our offline scores a better proxy for live use.
+
+Finally, the problem benefits from models that balance interpretability and flexibility. Linear effects should be visible (ex, increasing Elo difference increases win odds), while interactions and non‑linear thresholds (ex, momentum effects captured via rolling windows) should also be learnable. This informs the modeling choices described later.

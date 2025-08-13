@@ -1,4 +1,4 @@
-# train_model.py  — Vetiver + pins back-compat (fixed make_s3_board for old pins)
+# train_model.py
 import os, json, inspect
 from pathlib import Path
 from collections import defaultdict
@@ -23,8 +23,8 @@ PIN_TO_S3          = os.getenv("PIN_TO_S3", "false").lower() == "true"
 USE_VETIVER_BUNDLE = os.getenv("USE_VETIVER", "false").lower() == "true"
 RANDOM_STATE       = 42
 
-MODEL_BUCKET = os.getenv("MODEL_BUCKET", "")          # used only if PIN_TO_S3
-MODEL_PIN    = os.getenv("MODEL_PIN", "stack_model")  # also used as vetiver model_name
+MODEL_BUCKET = os.getenv("MODEL_BUCKET", "")         
+MODEL_PIN    = os.getenv("MODEL_PIN", "stack_model")
 
 # ---------- load ----------
 df0 = pd.read_csv(DATA_PATH)
@@ -140,7 +140,7 @@ best_xgb_params = {
     "colsample_bytree": 0.75,
     "eval_metric": "logloss",
     "random_state": RANDOM_STATE,
-    "enable_categorical": False, # <-- ADD THIS LINE
+    "enable_categorical": False,
 }
 xgb = XGBClassifier(**best_xgb_params)
 
@@ -183,29 +183,25 @@ if USE_VETIVER_BUNDLE:
     from sklearn.preprocessing import StandardScaler
     import boto3, io, botocore
 
-    # Build a simple pipeline (if you really want the scaler)
     model_pipeline = Pipeline([
         ("scaler", StandardScaler()),
         ("classifier", stack),
     ])
     model_pipeline.fit(X_train, y_train)
 
-    # Wrap in Vetiver (prototype for schema only)
     v = VetiverModel(model=model_pipeline,
                      model_name=MODEL_PIN,
                      prototype=X_train.iloc[:2].copy())
 
-    # Always save locally too (nice for debugging)
     local_art = OUT_DIR / "vetiver_model.joblib"
     joblib.dump(v, local_art)
     print(f"Saved VetiverModel locally to {local_art}")
 
-    # ---------- DIRECT BOTO3 UPLOAD (no pins) ----------
+    # ---------- DIRECT BOTO3 UPLOAD ----------
     bucket = MODEL_BUCKET or os.getenv("AWS_S3_BUCKET") or ""
     assert bucket, "MODEL_BUCKET env var must be set when USE_VETIVER_BUNDLE=true"
 
     region = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
-    # Use explicit creds only if provided; otherwise rely on env/instance profile
     kw = {"region_name": region}
     if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
         kw["aws_access_key_id"] = os.getenv("AWS_ACCESS_KEY_ID")
@@ -213,7 +209,6 @@ if USE_VETIVER_BUNDLE:
 
     s3 = boto3.client("s3", **kw)
 
-    # The key your api.py loads
     key = f"{MODEL_PIN}/vetiver_model.joblib"
     print(f"Uploading Vetiver model to s3://{bucket}/{key} ...")
 
@@ -222,12 +217,10 @@ if USE_VETIVER_BUNDLE:
     buf.seek(0)
     try:
         s3.put_object(Bucket=bucket, Key=key, Body=buf.getvalue())
-        # verify it exists and print size
         head = s3.head_object(Bucket=bucket, Key=key)
         size = head.get("ContentLength")
         print(f"Uploaded OK ({size} bytes).")
 
-        # Optional: presigned URL for a quick manual test (expires in 10 min)
         try:
             url = s3.generate_presigned_url(
                 ClientMethod="get_object",
@@ -238,7 +231,6 @@ if USE_VETIVER_BUNDLE:
         except Exception as e:
             print(f"(Could not generate presigned URL: {e})")
 
-        # Optional tiny manifest your api.py can use if you wish
         manifest = {"type": "vetiver_joblib", "key": key, "bucket": bucket}
         s3.put_object(
             Bucket=bucket,
@@ -253,7 +245,6 @@ if USE_VETIVER_BUNDLE:
         raise
 
 else:
-    # Plain joblib bundle for a minimal FastAPI (not used by Vetiver API)
     joblib.dump(bundle, OUT_MODEL)
     with open(OUT_META, "w") as f:
         json.dump({"features": FEATURES, "types": {c: "float" for c in FEATURES}}, f, indent=2)
