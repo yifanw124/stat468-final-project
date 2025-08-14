@@ -25,8 +25,8 @@ for pkg in ["boto3","vetiver","fastapi","uvicorn","pandas","numpy","scikit-learn
 print("All deps import OK.")
 PY
 COPY api.py /app/
-# ENV MODEL_BUCKET=badminton12345
-# ENV MODEL_KEY=stack_model/vetiver_model.joblib
-# ENV ALLOWED_ORIGINS=*
+ENV MODEL_BUCKET=badminton12345
+ENV MODEL_KEY=stack_model/vetiver_model.joblib
+ENV ALLOWED_ORIGINS=*
 EXPOSE 8000
 CMD ["uvicorn","api:app","--host","0.0.0.0","--port","8000"]
